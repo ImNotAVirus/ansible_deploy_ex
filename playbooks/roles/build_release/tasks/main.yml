@@ -6,7 +6,7 @@
     name: "{{ app_name }}-builder"
     source: build
     build:
-      path: "{{ elixir_project_path }}/deploy"
+      path: "{{ elixir_project_path }}/deploy/playbooks/roles/build_release/files"
       dockerfile: Dockerfile.builder
       args:
         BUILD_IMAGE: "{{ docker_build_image }}"
