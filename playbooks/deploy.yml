@@ -1,0 +1,13 @@
+---
+# Compile and build Elixir release locally
+- name: Compile and build Elixir release
+  hosts: localhost
+  gather_facts: no
+  roles:
+    - build_release
+
+- name: Deploy and launch Phoenix release
+  hosts: application
+  become: true
+  roles:
+    - deploy_release

@@ -1,0 +1,91 @@
+---
+# tasks file for deploy_release
+- name: Find the latest Phoenix release tarball
+  become: false
+  ansible.builtin.find:
+    paths: "{{ elixir_project_path }}/_build/prod/"
+    patterns: "*.tar.gz"
+    recurse: no
+  register: release_files
+  delegate_to: localhost
+
+- name: Set release_tarball variable to latest file
+  become: false
+  ansible.builtin.set_fact:
+    release_tarball: "{{ (release_files.files | sort(attribute='mtime', reverse=true))[0].path if release_files.files | length > 0 else '' }}"
+  delegate_to: localhost
+
+- name: Fail if no Phoenix release tarball found
+  ansible.builtin.fail:
+    msg: "No Phoenix release tarball (*.tar.gz) found in {{ elixir_project_path }}/_build/prod. Run the build_release role first."
+  when: release_tarball == ''
+
+- name: Copy Phoenix release tarball to server
+  ansible.builtin.copy:
+    src: "{{ release_tarball }}"
+    dest: "/home/{{ app_user }}/{{ app_name }}-release.tar.gz"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0644'
+
+- name: Ensure app directory exists
+  ansible.builtin.file:
+    path: "/home/{{ app_user }}/{{ app_name }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+
+- name: Extract Phoenix release on server
+  ansible.builtin.unarchive:
+    src: "/home/{{ app_user }}/{{ app_name }}-release.tar.gz"
+    dest: "/home/{{ app_user }}/{{ app_name }}"
+    remote_src: yes
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  notify: Restart Phoenix app
+
+- name: Remove Phoenix release tarball from server
+  ansible.builtin.file:
+    path: "/home/{{ app_user }}/{{ app_name }}-release.tar.gz"
+    state: absent
+
+- name: Check if .env files exist locally
+  become: false
+  ansible.builtin.stat:
+    path: "{{ elixir_project_path }}/envs/{{ item }}"
+  register: env_file_stats
+  with_items:
+    - .env
+    - .prod.env
+  delegate_to: localhost
+
+- name: Copy .env files to server if they exist
+  ansible.builtin.copy:
+    src: "{{ elixir_project_path }}/envs/{{ item.item }}"
+    dest: "/home/{{ app_user }}/{{ app_name }}/{{ item.item }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0600'
+  when: item.stat.exists
+  with_items: "{{ env_file_stats.results }}"
+  notify: Restart Phoenix app
+
+- name: Create systemd service for Phoenix app
+  ansible.builtin.template:
+    src: phoenix_app.service.j2
+    dest: /etc/systemd/system/{{ app_name }}.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable and start Phoenix app service
+  ansible.builtin.systemd:
+    name: "{{ app_name }}.service"
+    enabled: yes
+    state: started

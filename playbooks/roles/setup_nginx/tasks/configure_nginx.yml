@@ -1,0 +1,42 @@
+- name: Remove the default nginx app's config
+  ansible.builtin.file:
+    path: /etc/nginx/sites-available/default
+    state: absent
+
+- name: Remove the default nginx app's symlink if it exists
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Copy nginx.conf
+  ansible.builtin.template:
+    src: nginx.conf
+    dest: /etc/nginx/nginx.conf
+
+- name: Ensure Nginx Modules dir exists
+  ansible.builtin.file:
+    path: /etc/nginx/modules
+    state: directory
+
+- name: Nginx SSL Shared Settings Module
+  ansible.builtin.template:
+    src: shared_ssl_settings
+    dest: /etc/nginx/modules/{{ app_name }}_shared_ssl_settings
+
+- name: Configure nginx for the app
+  ansible.builtin.template:
+    src: website.nginx
+    dest: "/etc/nginx/sites-available/{{ app_name }}"
+    group: "{{ app_user }}"
+    owner: "{{ app_user }}"
+    force: yes
+  notify: Reload nginx
+
+- name: Enable the app
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ app_name }}"
+    dest: "/etc/nginx/sites-enabled/{{ app_name }}"
+    state: link
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+  notify: Reload nginx

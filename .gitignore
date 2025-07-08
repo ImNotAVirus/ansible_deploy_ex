@@ -1,0 +1,2 @@
+/playbooks/inventory/hosts
+/playbooks/group_vars/all/all.yml

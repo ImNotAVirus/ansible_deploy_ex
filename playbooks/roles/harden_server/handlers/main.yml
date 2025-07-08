@@ -1,0 +1,20 @@
+# handlers/main.yml for harden_server
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+
+- name: Restart SSH
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Restart unattended-upgrades
+  ansible.builtin.service:
+    name: unattended-upgrades
+    state: restarted
+
+- name: Restart iptables
+  ansible.builtin.service:
+    name: netfilter-persistent
+    state: restarted

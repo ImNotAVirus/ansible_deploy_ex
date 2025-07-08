@@ -1,0 +1,7 @@
+- name: Setup the server
+  hosts: application
+  become: true
+  roles:
+    - base
+    - harden_server
+    - setup_nginx

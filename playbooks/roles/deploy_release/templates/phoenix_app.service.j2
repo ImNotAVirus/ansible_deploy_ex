@@ -1,0 +1,15 @@
+[Unit]
+Description=Application Service for {{ app_name }}
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_user }}
+WorkingDirectory=/home/{{ app_user }}/{{ app_name }}
+ExecStart=/home/{{ app_user }}/{{ app_name }}/bin/{{ app_name }} start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

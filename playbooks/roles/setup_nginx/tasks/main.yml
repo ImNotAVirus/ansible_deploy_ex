@@ -1,0 +1,10 @@
+---
+# tasks file for setup_nginx
+- name: Install Nginx
+  import_tasks: install_nginx.yml
+
+- name: Install and configure Certbot
+  import_tasks: install_certbot.yml
+
+- name: Configure Nginx
+  import_tasks: configure_nginx.yml

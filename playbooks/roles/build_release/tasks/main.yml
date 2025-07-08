@@ -1,0 +1,37 @@
+---
+# tasks file for build_release
+
+- name: Build custom builder image with asdf, Erlang, and Elixir
+  ansible.builtin.docker_image:
+    name: "{{ app_name }}-builder"
+    source: build
+    build:
+      path: "{{ elixir_project_path }}/deploy"
+      dockerfile: Dockerfile.builder
+      args:
+        BUILD_IMAGE: "{{ docker_build_image }}"
+        ERLANG_VERSION: "{{ erlang_version }}"
+        ELIXIR_VERSION: "{{ elixir_version }}"
+    force_source: true
+
+- name: Build Phoenix release in Docker using builder image
+  ansible.builtin.docker_container:
+    name: phoenix-release-build
+    image: "{{ app_name }}-builder"
+    state: started
+    command: >-
+      bash -c '
+        export ERL_AFLAGS="+JMsingle true" && \
+        cd /app && \
+        source /root/.asdf/asdf.sh && \
+        MIX_ENV=prod mix deps.get --only prod && \
+        MIX_ENV=prod mix compile && \
+        MIX_ENV=prod mix assets.deploy && \
+        MIX_ENV=prod mix release --overwrite
+      '
+    volumes:
+      - "{{ elixir_project_path }}:/app"
+    detach: no
+    cleanup: yes
+    auto_remove: yes
+    working_dir: /app

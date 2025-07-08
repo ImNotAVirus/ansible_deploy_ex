@@ -1,0 +1,24 @@
+---
+# Linux user that will own and run the application on the server
+app_user: deploy
+# Name of your application (used for directories, services, etc.)
+app_name: your_app
+# Main domain name for your app (used for Nginx, SSL, etc.)
+domain: your_app.com
+# Email for admin notifications (e.g. security updates, SSL)
+admin_email: contact@your_app.com
+
+# SSH port for server access (default is 22, change for security)
+ssh_port: 3333
+# Your public SSH key (for secure, passwordless login)
+ssh_pubkey: "ssh-rsa AAA..."
+
+# Path to your Elixir project root (used for build/deploy)
+elixir_project_path: "{{ playbook_dir | dirname | dirname }}"
+
+# Elixir version to use for building the release
+elixir_version: "1.18.1"
+# Erlang version to use for building the release
+erlang_version: "27.3.4.1"
+# Base Docker image for building the release (should match your prod server)
+docker_build_image: "debian:12"

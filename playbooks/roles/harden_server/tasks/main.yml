@@ -1,0 +1,107 @@
+# Role: harden_server
+# Tasks to harden the VPS
+- name: Install unattended-upgrades
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+
+- name: Enable automatic security updates
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure unattended-upgrades email notification
+  ansible.builtin.lineinfile:
+    path: /etc/apt/apt.conf.d/50unattended-upgrades
+    regexp: '^\s*Unattended-Upgrade::Mail '
+    line: "Unattended-Upgrade::Mail \"{{ admin_email }}\";"
+    state: present
+    backup: yes
+  notify: Restart unattended-upgrades
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Change SSH port
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?Port '
+    line: "Port {{ ssh_port }}"
+    state: present
+    backup: yes
+  notify: Restart SSH
+
+- name: Add authorized SSH key for application user
+  ansible.builtin.authorized_key:
+    user: "{{ app_user }}"
+    key: "{{ ssh_pubkey }}"
+    state: present
+
+- name: Disable SSH password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication '
+    line: 'PasswordAuthentication no'
+    state: present
+    backup: yes
+  notify: Restart SSH
+
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+
+- name: Configure fail2ban for SSH
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.d/sshd.conf
+    content: |
+      [sshd]
+      enabled = true
+      port = {{ ssh_port }}
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = 3
+      bantime = 1800
+      findtime = 300
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart fail2ban
+
+- name: Configure iptables to allow only SSH, HTTP, and HTTPS
+  ansible.builtin.blockinfile:
+    path: /etc/iptables/rules.v4
+    create: yes
+    block: |
+      *filter
+      :INPUT DROP [0:0]
+      :FORWARD DROP [0:0]
+      :OUTPUT ACCEPT [0:0]
+      -A INPUT -i lo -j ACCEPT
+      -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      -A INPUT -p tcp --dport {{ ssh_port }} -j ACCEPT
+      -A INPUT -p tcp --dport 80 -j ACCEPT
+      -A INPUT -p tcp --dport 443 -j ACCEPT
+      COMMIT
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Ensure iptables-persistent is installed
+  ansible.builtin.apt:
+    name: iptables-persistent
+    state: present
+    update_cache: yes
+
+- name: Reload iptables rules
+  ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
+  notify: Restart iptables

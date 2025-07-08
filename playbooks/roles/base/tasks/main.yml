@@ -1,0 +1,15 @@
+---
+# tasks file for base
+- name: Update package cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Upgrade installed packages
+  ansible.builtin.apt:
+    upgrade: dist
+
+- name: Install needed packages
+  ansible.builtin.apt:
+    name: acl
+    state: present
